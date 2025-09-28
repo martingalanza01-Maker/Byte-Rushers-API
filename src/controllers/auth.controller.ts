@@ -143,29 +143,126 @@ export class AuthController {
     for (const p of parts) if (p.startsWith(TOKEN_COOKIE + '=')) return p.substring(TOKEN_COOKIE.length + 1);
     return null;
   }
+  
   @post('/auth/forgot', {
-    responses: { '200': { description: 'Request accepted' } }
+    responses: {'200': {description: 'Request accepted'}}
   })
   async forgotPassword(
     @requestBody({
       required: true,
-      content: {'application/json': { schema: { type: 'object', required: ['email'], properties: { email: { type: 'string' } } } }}
-    }) body: { email: string }
+      content: {
+        'application/json': {
+          schema: {
+            type: 'object',
+            required: ['email'],
+            properties: { email: {type: 'string', format: 'email'} }
+          }
+        }
+      }
+    })
+    body: { email: string }
   ) {
     const email = body.email?.trim().toLowerCase();
     if (!email) return { ok: false, message: 'Email is required' };
 
     const user = await this.userRepo.findOne({ where: { email } });
-    if (!user) { return { ok: true }; } // do not send if not registered
+    if (!user) {
+      // Per requirement: do not proceed if email is unknown
+      return { ok: false, message: 'Email not found' };
+    }
 
     const code = Math.floor(100000 + Math.random() * 900000).toString();
     const expires = new Date(Date.now() + 10 * 60 * 1000).toISOString();
-    await this.userRepo.updateById(user.id as any, { resetCode: code, resetCodeExpiresAt: expires });
+    await this.userRepo.updateById(user.id as any, { resetCode: code, resetCodeExpiresAt: expires } as Partial<User>);
 
-    const html = `<p>Hello ${user.firstName || ''},</p><p>Your password reset code is: <b>${code}</b></p><p>This code expires in 10 minutes.</p>`;
-    try { await this.mailer.sendMail({ to: email, subject: 'Your password reset code', text: 'Code: ' + code, html }); }
-    catch (_e) { return { ok: false, message: 'Failed to send email' }; }
+    const html = `<p>Hello ${user.firstName || ''},</p>
+      <p>Your password reset verification code is: <b>${code}</b></p>
+      <p>This code expires in 10 minutes.</p>`;
+    try {
+      await this.mailer.sendMail({ to: email, subject: 'Your password reset code', text: 'Code: ' + code, html });
+    } catch (_e) {
+      return { ok: false, message: 'Failed to send email' };
+    }
+    return { ok: true };
+  }
+
+  @post('/auth/verify-code', {
+    responses: {'200': {description: 'Verify reset code'}}
+  })
+  async verifyResetCode(
+    @requestBody({
+      required: true,
+      content: {'application/json': {schema: {
+        type: 'object',
+        required: ['email','code'],
+        properties: {
+          email: {type:'string', format:'email'},
+          code: {type:'string', minLength: 6, maxLength: 6}
+        }
+      } }}
+    })
+    body: { email: string; code: string }
+  ) {
+    const email = body.email?.trim().toLowerCase();
+    const code = body.code?.trim();
+    if (!email || !code) return { ok: false, message: 'Email and code are required' };
+
+    const user = await this.userRepo.findOne({ where: { email } });
+    if (!user || !user.resetCode || !user.resetCodeExpiresAt) return { ok: false, message: 'Invalid code' };
+
+    const now = Date.now();
+    const exp = Date.parse(user.resetCodeExpiresAt);
+    if (user.resetCode !== code || isNaN(exp) || exp < now) {
+      return { ok: false, message: 'Invalid or expired code' };
+    }
+    return { ok: true };
+  }
+
+  @post('/auth/reset-password', {
+    responses: {'200': {description: 'Reset password'}}
+  })
+  async resetPassword(
+    @requestBody({
+      required: true,
+      content: {'application/json': {schema: {
+        type:'object',
+        required:['email','code','password'],
+        properties: {
+          email: {type:'string', format:'email'},
+          code: {type:'string', minLength:6, maxLength:6},
+          password: {type:'string', minLength:8}
+        }
+      }}}
+    })
+    body: {email: string; code: string; password: string}
+  ) {
+    const email = body.email?.trim().toLowerCase();
+    const code = body.code?.trim();
+    const password = body.password;
+
+    if (!email || !code || !password) return { ok: false, message: 'Missing fields' };
+    const user = await this.userRepo.findOne({ where: { email } });
+    if (!user || !user.resetCode || !user.resetCodeExpiresAt) return { ok: false, message: 'Invalid request' };
+
+    const now = Date.now();
+    const exp = Date.parse(user.resetCodeExpiresAt);
+    if (user.resetCode !== code || isNaN(exp) || exp < now) {
+      return { ok: false, message: 'Invalid or expired code' };
+    }
+
+    // validate password similar to frontend: 8+ with upper/lower/number
+    const valid = password.length >= 8 && /[A-Z]/.test(password) && /[a-z]/.test(password) && /\d/.test(password);
+    if (!valid) return { ok: false, message: 'Password does not meet complexity requirements' };
+
+    const hashed = await bcrypt.hash(password, 10);
+    await this.userRepo.updateById(user.id as any, {
+      password: hashed,
+      resetCode: null as any,
+      resetCodeExpiresAt: null as any
+    } as unknown as Partial<User>);
 
     return { ok: true };
   }
+
+
 }
