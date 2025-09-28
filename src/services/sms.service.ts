@@ -36,6 +36,7 @@ export class SmsService {
     if (!apiKey) { console.warn('[SmsService] INFOBIP_API_KEY not set, skipping SMS.'); return; }
     const url = baseUrl.replace(/\/$/, '') + '/sms/2/text/advanced';
     const payload = { messages: [ { destinations: [{ to: to.replace(/^\+/, '') }], from, text: body } ] };
+    
     try {
       const fetchFn: any = (global as any).fetch || (await import('node-fetch')).default;
       const res = await fetchFn(url, { method: 'POST', headers: { 'Authorization': `App ${apiKey}`, 'Content-Type': 'application/json', 'Accept': 'application/json' }, body: JSON.stringify(payload) });

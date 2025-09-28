@@ -15,13 +15,12 @@ export class Submission extends Entity {
   @property({type: 'string'})
   priority?: string;
 
-  @property({type: 'string', required: true})
+  @property({type: 'string'})
   complaintId: string;
 
   @property({type: 'string', required: true})
   email: string;
 
-  // 'Complaint' | 'Inquiry'
   @property({type: 'string', required: true})
   submissionType: string;
 

@@ -34,7 +34,7 @@ export class SubmissionController {
   @post('/submissions')
   @response(200, {
     description: 'Submission model instance',
-    content: {'application/json': {schema: getModelSchemaRef(Submission)}},
+    content: { 'application/json': { schema: getModelSchemaRef(Submission) } },
   })
   async create(
     @requestBody({
@@ -42,30 +42,36 @@ export class SubmissionController {
       required: true,
       content: {
         'application/json': {
-          schema: getModelSchemaRef(Submission, {title: 'NewSubmission', partial: true}),
+          schema: getModelSchemaRef(Submission, { title: 'NewSubmission', partial: true }),
         },
       },
     })
     submission: Partial<Submission>,
   ): Promise<Submission> {
-    const complaintId = await this.generateComplaintId();
+    // Determine type first
+    const submissionType = (submission.submissionType ?? 'Complaint').trim();
+
+    // Only generate IDs for Complaints
+    const complaintId =
+      submissionType.toLowerCase() === 'complaint'
+        ? await this.generateComplaintId()
+        : '';
+
     const payload: Partial<Submission> = {
       ...submission,
+      submissionType,
       complaintId,
-      submissionType: submission.submissionType ?? 'Complaint',
     };
 
-    const created = await this.submissionRepository.create(
-      payload as DataObject<Submission>,
-    );
-    await this.maybeSendSms(created);
+    const created = await this.submissionRepository.create(payload as DataObject<Submission>);
+    await this.maybeSendSms(created); // will no-op for Inquiry anyway
     return created;
   }
 
   @post('/submissions/upload')
   @response(200, {
     description: 'Submission created with file',
-    content: {'application/json': {schema: getModelSchemaRef(Submission)}},
+    content: { 'application/json': { schema: getModelSchemaRef(Submission) } },
   })
   async createWithFile(
     @inject(RestBindings.Http.REQUEST) req: Request,
@@ -80,16 +86,21 @@ export class SubmissionController {
         cb(null, unique + ext);
       },
     });
-    const upload = multer({storage}).single('evidence');
+    const upload = multer({ storage }).single('evidence');
 
     const fields: any = await new Promise((resolve, reject) => {
       upload(req as any, {} as any, (err: any) => {
         if (err) return reject(err);
-        resolve({...((req as any).body ?? {}), file: (req as any).file});
+        resolve({ ...((req as any).body ?? {}), file: (req as any).file });
       });
     });
 
-    const complaintId = await this.generateComplaintId();
+    const submissionType = (fields.submissionType || 'Complaint').trim();
+
+    const complaintId =
+      submissionType.toLowerCase() === 'complaint'
+        ? await this.generateComplaintId()
+        : '';
 
     const data: DataObject<Submission> = {
       name: fields.anonymous === 'true' ? 'Anonymous' : (fields.name ?? fields.complainantName),
@@ -106,11 +117,11 @@ export class SubmissionController {
       anonymous: fields.anonymous === 'true' || fields.anonymous === true,
       smsNotifications: fields.smsNotifications === 'true' || fields.smsNotifications === true,
       evidenceUrl: fields.file ? '/uploads/' + fields.file.filename : undefined,
-      submissionType: fields.submissionType || 'Complaint',
+      submissionType,
     };
 
     const created = await this.submissionRepository.create(data);
-    await this.maybeSendSms(created);
+    await this.maybeSendSms(created); // will no-op for Inquiry
     return created;
   }
 
