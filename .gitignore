@@ -67,3 +67,5 @@ typings/
 \#*#
 
 api.zip
+
+/public/uploads/*

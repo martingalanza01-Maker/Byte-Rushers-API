@@ -8,15 +8,51 @@ export class Submission extends Entity {
   @property({type: 'string', required: true})
   name: string;
 
+  // Complaint category (e.g., Noise, Roads…)
+  @property({type: 'string'})
+  type?: string;
+
+  @property({type: 'string'})
+  priority?: string;
+
+  @property({type: 'string', required: true})
+  complaintId: string;
+
   @property({type: 'string', required: true})
   email: string;
+
+  // 'Complaint' | 'Inquiry'
+  @property({type: 'string', required: true})
+  submissionType: string;
+
+  @property({type: 'boolean'})
+  smsNotifications?: boolean;
 
   @property({type: 'string'})
   phone?: string;
 
   @property({type: 'string'})
+  address?: string;
+
+  // ✅ Newly added — used by controller payload
+  @property({type: 'string'})
+  location?: string;
+
+  // ✅ Newly added — used by controller payload
+  @property({type: 'string'})
+  hall?: string;
+
+  // ✅ Newly added — used by controller payload
+  @property({type: 'boolean'})
+  anonymous?: boolean;
+
+  @property({type: 'string'})
+  evidenceUrl?: string;
+
+  @property({type: 'string'})
   subject?: string;
 
+  // (Your model had this; controller doesn’t set it, but it’s fine to keep)
   @property({type: 'string'})
   category?: string;
 

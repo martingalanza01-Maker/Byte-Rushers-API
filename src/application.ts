@@ -10,6 +10,7 @@ import {ServiceMixin} from '@loopback/service-proxy';
 import path from 'path';
 import {MySequence} from './sequence';
 import {corsMiddleware} from './middleware/cors.middleware';
+import {CounterService} from './services/counter.service';
 
 export {ApplicationConfig};
 
@@ -36,6 +37,7 @@ export class LoopbackApiApplication extends BootMixin(
 
     this.projectRoot = __dirname;
     // Customize @loopback/boot Booter Conventions here
+    this.service(CounterService);
     this.bootOptions = {
       controllers: {
         // Customize ControllerBooter Conventions here
