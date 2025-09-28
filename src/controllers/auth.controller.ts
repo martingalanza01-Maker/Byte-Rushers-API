@@ -143,48 +143,74 @@ export class AuthController {
     for (const p of parts) if (p.startsWith(TOKEN_COOKIE + '=')) return p.substring(TOKEN_COOKIE.length + 1);
     return null;
   }
-  
   @post('/auth/forgot', {
-    responses: {'200': {description: 'Request accepted'}}
+    responses: { '200': { description: 'Request accepted' } }
   })
   async forgotPassword(
     @requestBody({
       required: true,
-      content: {
-        'application/json': {
-          schema: {
-            type: 'object',
-            required: ['email'],
-            properties: { email: {type: 'string', format: 'email'} }
-          }
-        }
-      }
-    })
-    body: { email: string }
+      content: {'application/json': { schema: { type: 'object', required: ['email'], properties: { email: { type: 'string' } } } }}
+    }) body: { email: string }
   ) {
     const email = body.email?.trim().toLowerCase();
     if (!email) return { ok: false, message: 'Email is required' };
 
     const user = await this.userRepo.findOne({ where: { email } });
-    if (!user) {
-      // Per requirement: do not proceed if email is unknown
-      return { ok: false, message: 'Email not found' };
-    }
+    if (!user) { return { ok: false, message: 'Email not found' }; } // do not send if not registered
 
     const code = Math.floor(100000 + Math.random() * 900000).toString();
-    const expires = new Date(Date.now() + 10 * 60 * 1000).toISOString();
-    await this.userRepo.updateById(user.id as any, { resetCode: code, resetCodeExpiresAt: expires } as Partial<User>);
+    const ttlMin = parseInt(process.env.RESET_CODE_TTL_MIN || '10', 10);
+    const ttlMs = Math.max(1, ttlMin) * 60 * 1000;
+    const expires = new Date(Date.now() + ttlMs).toISOString();
+    await this.userRepo.updateById(user.id as any, { resetCode: code, resetCodeExpiresAt: expires });
+
+    const html = `<p>Hello ${user.firstName || ''},</p><p>Your password reset code is: <b>${code}</b></p><p>This code expires in ${ttlMin} minutes.</p>`;
+    try { await this.mailer.sendMail({ to: email, subject: 'Your password reset code', text: 'Code: ' + code, html }); }
+    catch (_e) { return { ok: false, message: 'Failed to send email' }; }
+
+    return { ok: true, expiresAt: expires, ttlSeconds: Math.floor((Date.parse(expires) - Date.now()) / 1000) };
+  }
+
+  @post('/auth/resend-code', {
+    responses: {'200': {description: 'Resend reset code'}}
+  })
+  async resendCode(
+    @requestBody({
+      required: true,
+      content: {'application/json': {schema: {
+        type:'object',
+        required:['email'],
+        properties: { email: {type:'string', format:'email'} }
+      }}}
+    })
+    body: {email: string}
+  ) {
+    const email = body.email?.trim().toLowerCase();
+    if (!email) return { ok: false, message: 'Email is required' };
+    const user = await this.userRepo.findOne({ where: { email } });
+    if (!user) return { ok: false, message: 'Email not found' };
+
+    const code = Math.floor(100000 + Math.random() * 900000).toString();
+    const ttlMin = parseInt(process.env.RESET_CODE_TTL_MIN || '10', 10);
+    const ttlMs = Math.max(1, ttlMin) * 60 * 1000;
+    const expires = new Date(Date.now() + ttlMs).toISOString();
+
+    await this.userRepo.updateById(user.id as any, { resetCode: code, resetCodeExpiresAt: expires } as any);
 
     const html = `<p>Hello ${user.firstName || ''},</p>
       <p>Your password reset verification code is: <b>${code}</b></p>
-      <p>This code expires in 10 minutes.</p>`;
-    try {
-      await this.mailer.sendMail({ to: email, subject: 'Your password reset code', text: 'Code: ' + code, html });
-    } catch (_e) {
-      return { ok: false, message: 'Failed to send email' };
+      <p>This code expires in ${ttlMin} minutes.</p>`;
+
+    try { 
+      await this.mailer.sendMail({ to: email, subject: 'Your password reset code', text: 'Code: ' + code, html }); 
+    } catch (_e) { 
+      return { ok: false, message: 'Failed to send email' }; 
     }
-    return { ok: true };
+
+    return { ok: true, expiresAt: expires, ttlSeconds: Math.floor((Date.parse(expires) - Date.now()) / 1000) };
   }
+
+
 
   @post('/auth/verify-code', {
     responses: {'200': {description: 'Verify reset code'}}
@@ -259,10 +285,9 @@ export class AuthController {
       password: hashed,
       resetCode: null as any,
       resetCodeExpiresAt: null as any
-    } as unknown as Partial<User>);
+    } as any);
 
     return { ok: true };
   }
-
 
 }
