@@ -44,6 +44,16 @@ export class Resident extends Entity {
   barangayHall?: string;
 
   // Account
+  @property({type: 'boolean', default: false})
+  emailVerified?: boolean;
+
+  @property({type: 'string'})
+  verificationToken?: string;
+
+  @property({type: 'date'})
+  verificationExpires?: string;
+
+  // Account
   @property({type: 'string'})
   passwordHash?: string;
 

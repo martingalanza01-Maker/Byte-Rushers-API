@@ -1,10 +1,11 @@
 import {repository} from '@loopback/repository';
-import {post, get, requestBody, param, HttpErrors} from '@loopback/rest';
+import {get, HttpErrors, param, post, requestBody} from '@loopback/rest';
+import * as bcrypt from 'bcryptjs';
 import {Resident} from '../models';
 import {ResidentRepository} from '../repositories';
-import * as bcrypt from 'bcryptjs';
+import {sendMailGmail} from '../services/mailer.service';
 
-type CreateResidentRequest = Omit<Resident, 'id'|'passwordHash'|'createdAt'> & {password: string};
+type CreateResidentRequest = Omit<Resident, 'id' | 'passwordHash' | 'createdAt'> & {password: string};
 
 function normalizePhonePH(value: string): string {
   const digits = (value || '').replace(/\D+/g, '');
@@ -24,10 +25,12 @@ function normalizePhonePH(value: string): string {
   return '63' + digits;
 }
 
+const API_BASE = process.env.APP_BASE_URL || 'http://localhost:3001';
+
 export class ResidentController {
   constructor(
     @repository(ResidentRepository) private residentRepo: ResidentRepository,
-  ) {}
+  ) { }
 
   @get('/residents/exists', {
     responses: {
@@ -59,7 +62,7 @@ export class ResidentController {
         'application/json': {
           schema: {
             type: 'object',
-            required: ['firstName','lastName','email','phone','password'],
+            required: ['firstName', 'lastName', 'email', 'phone', 'password'],
             properties: {
               firstName: {type: 'string'},
               lastName: {type: 'string'},
@@ -92,6 +95,8 @@ export class ResidentController {
     const salt = await bcrypt.genSalt(10);
     const passwordHash = await bcrypt.hash(body.password, salt);
 
+    const token = (Math.random().toString(36).slice(2) + Math.random().toString(36).slice(2)).slice(0, 48);
+    const expires = new Date(Date.now() + 24 * 60 * 60 * 1000).toISOString();
     const resident = await this.residentRepo.create({
       firstName: body.firstName,
       lastName: body.lastName,
@@ -107,8 +112,82 @@ export class ResidentController {
       barangayHall: body.barangayHall,
       passwordHash,
       createdAt: new Date().toISOString(),
+      emailVerified: false,
+      verificationToken: token,
+      verificationExpires: expires,
     });
 
+
+    // Send verification email (best-effort)
+    try {
+      const verifyLink = `${API_BASE}/residents/verify?token=${encodeURIComponent(token)}`;
+      await sendMailGmail({
+        to: email,
+        subject: 'Verify your email',
+        html: `<p>Hi ${body.firstName || ''},</p>
+           <p>Thanks for registering. Please verify your email by clicking the link below:</p>
+           <p><a href="${verifyLink}" target="_blank" rel="noopener">Verify Email</a></p>
+           <p>This link expires in 24 hours.</p>`
+      });
+    } catch (e) {
+      // Do not block registration on email failure
+      console.error('Verification email failed:', e);
+    }
     return resident;
+  }
+
+  // Endpoint to (re)send verification email if needed
+  @post('/residents/{id}/send-verification', {
+    responses: {'204': {description: 'Verification email sent'}},
+  })
+  async sendVerification(@param.path.string('id') id: string): Promise<void> {
+    const resident = await this.residentRepo.findById(id);
+    if (!resident) throw new HttpErrors.NotFound('Resident not found');
+
+    // Generate new token & expiry
+    const token = (Math.random().toString(36).slice(2) + Math.random().toString(36).slice(2)).slice(0, 48);
+    const expires = new Date(Date.now() + 24 * 60 * 60 * 1000).toISOString();
+
+    await this.residentRepo.updateById(id, {
+      verificationToken: token,
+      verificationExpires: expires,
+      emailVerified: false,
+    });
+
+    const API_BASE = process.env.APP_BASE_URL || 'http://localhost:3001';
+    const {sendMailGmail} = await import('../services/mailer.service');
+    const verifyLink = `${API_BASE}/residents/verify?token=${encodeURIComponent(token)}`;
+
+    await sendMailGmail({
+      to: resident.email?.toString() || '',
+      subject: 'Verify your email',
+      html: `<p>Hi ${resident.firstName || ''},</p>
+             <p>Please verify your email by clicking the link below:</p>
+             <p><a href="${verifyLink}" target="_blank" rel="noopener">Verify Email</a></p>
+             <p>This link expires in 24 hours.</p>`
+    });
+  }
+
+  // Link target: flips emailVerified = true
+  @get('/residents/verify', {
+    responses: {'200': {description: 'Email verified', content: {'application/json': {schema: {type: 'object', properties: {ok: {type: 'boolean'}}}}}}},
+  })
+  async verify(@param.query.string('token') token: string): Promise<{ok: boolean}> {
+    if (!token) throw new HttpErrors.BadRequest('token is required');
+
+    const found = await this.residentRepo.findOne({where: {verificationToken: token}});
+    if (!found) throw new HttpErrors.NotFound('Invalid token');
+
+    const now = Date.now();
+    const exp = found.verificationExpires ? new Date(found.verificationExpires).getTime() : 0;
+    if (!exp || now > exp) throw new HttpErrors.Gone('Verification link has expired');
+
+    await this.residentRepo.updateById(found.id!, {
+      emailVerified: true,
+      verificationToken: undefined,
+      verificationExpires: undefined,
+    });
+
+    return {ok: true};
   }
 }
