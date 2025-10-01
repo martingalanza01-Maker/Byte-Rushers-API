@@ -1,5 +1,6 @@
+import {inject} from '@loopback/core';
 import {repository} from '@loopback/repository';
-import {get, HttpErrors, param, post, requestBody} from '@loopback/rest';
+import {get, HttpErrors, param, post, requestBody, Response, RestBindings} from '@loopback/rest';
 import * as bcrypt from 'bcryptjs';
 import {Resident} from '../models';
 import {ResidentRepository} from '../repositories';
@@ -25,7 +26,8 @@ function normalizePhonePH(value: string): string {
   return '63' + digits;
 }
 
-const API_BASE = process.env.APP_BASE_URL || 'http://localhost:3001';
+const WEB_BASE_URL = process.env.WEB_BASE_URL || 'http://127.0.0.1:3000';
+const API_BASE = process.env.APP_BASE_URL || 'http://127.0.0.1:3001';
 
 export class ResidentController {
   constructor(
@@ -154,8 +156,6 @@ export class ResidentController {
       emailVerified: false,
     });
 
-    const API_BASE = process.env.APP_BASE_URL || 'http://localhost:3001';
-    const {sendMailGmail} = await import('../services/mailer.service');
     const verifyLink = `${API_BASE}/residents/verify?token=${encodeURIComponent(token)}`;
 
     await sendMailGmail({
@@ -168,26 +168,25 @@ export class ResidentController {
     });
   }
 
-  // Link target: flips emailVerified = true
   @get('/residents/verify', {
-    responses: {'200': {description: 'Email verified', content: {'application/json': {schema: {type: 'object', properties: {ok: {type: 'boolean'}}}}}}},
+    responses: {'200': {description: 'Email verified'}},
   })
-  async verify(@param.query.string('token') token: string): Promise<{ok: boolean}> {
+  async verify(
+    @param.query.string('token') token: string,
+    @inject(RestBindings.Http.RESPONSE) response: Response
+  ): Promise<object> {
     if (!token) throw new HttpErrors.BadRequest('token is required');
-
     const found = await this.residentRepo.findOne({where: {verificationToken: token}});
     if (!found) throw new HttpErrors.NotFound('Invalid token');
-
     const now = Date.now();
     const exp = found.verificationExpires ? new Date(found.verificationExpires).getTime() : 0;
     if (!exp || now > exp) throw new HttpErrors.Gone('Verification link has expired');
-
     await this.residentRepo.updateById(found.id!, {
       emailVerified: true,
       verificationToken: undefined,
       verificationExpires: undefined,
     });
-
+    response.redirect(303, `${WEB_BASE_URL}/verify-email/success`);
     return {ok: true};
   }
 }
