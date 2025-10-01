@@ -189,4 +189,69 @@ export class ResidentController {
     response.redirect(303, `${WEB_BASE_URL}/verify-email/success`);
     return {ok: true};
   }
+
+@post('/residents/{id}/resend-verification', {
+  responses: {'200': {description: 'Resent verification email'}},
+})
+async resendVerificationById(@param.path.string('id') id: string): Promise<{sent: boolean}> {
+  const resident = await this.residentRepo.findById(id).catch(() => null);
+  if (!resident) throw new HttpErrors.NotFound('Resident not found');
+  if (resident.emailVerified) throw new HttpErrors.BadRequest('Email already verified');
+
+  const token = (Math.random().toString(36).slice(2) + Math.random().toString(36).slice(2)).slice(0, 48);
+  const expires = new Date(Date.now() + 24*60*60*1000).toISOString();
+
+  await this.residentRepo.updateById(id, {
+    verificationToken: token,
+    verificationExpires: expires,
+    emailVerified: false,
+  });
+
+  const verifyLink = `${API_BASE}/residents/verify?token=${encodeURIComponent(token)}`;
+  await sendMailGmail({
+    to: resident.email?.toString() || '',
+    subject: 'Verify your email',
+    html: `<p>Hi ${resident.firstName || ''},</p>
+           <p>Please verify your email by clicking the link below:</p>
+           <p><a href="${verifyLink}" target="_blank" rel="noopener">Verify Email</a></p>
+           <p>This link expires in 24 hours.</p>`
+  });
+  return {sent: true};
+}
+
+@post('/residents/resend-verification', {
+  responses: {'200': {description: 'Resent verification email'}},
+})
+async resendVerificationByEmail(
+  @requestBody({
+    content: {'application/json': {schema: {type: 'object', required: ['email'], properties: {email: {type: 'string'}}}}}
+  })
+  body: {email: string}
+): Promise<{sent: boolean}> {
+  const email = body.email?.toLowerCase().trim();
+  if (!email) throw new HttpErrors.BadRequest('email is required');
+  const resident = await this.residentRepo.findOne({where: {email}});
+  if (!resident) throw new HttpErrors.NotFound('Resident not found');
+  if (resident.emailVerified) throw new HttpErrors.BadRequest('Email already verified');
+
+  const token = (Math.random().toString(36).slice(2) + Math.random().toString(36).slice(2)).slice(0, 48);
+  const expires = new Date(Date.now() + 24*60*60*1000).toISOString();
+
+  await this.residentRepo.updateById(resident.id!, {
+    verificationToken: token,
+    verificationExpires: expires,
+    emailVerified: false,
+  });
+
+  const verifyLink = `${API_BASE}/residents/verify?token=${encodeURIComponent(token)}`;
+  await sendMailGmail({
+    to: email,
+    subject: 'Verify your email',
+    html: `<p>Hi ${resident.firstName || ''},</p>
+           <p>Please verify your email by clicking the link below:</p>
+           <p><a href="${verifyLink}" target="_blank" rel="noopener">Verify Email</a></p>
+           <p>This link expires in 24 hours.</p>`
+  });
+  return {sent: true};
+}
 }
