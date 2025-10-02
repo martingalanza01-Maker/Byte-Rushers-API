@@ -68,6 +68,37 @@ export class User extends Entity {
   @property({type: 'date'})
   verificationExpires?: string;
 
+  
+@property({type: 'string'})
+name?: string;
+
+@property({type: 'string'})
+occupation?: string;
+
+@property({type: 'string'})
+address?: string;
+
+@property({type: 'string'})
+dateOfBirth?: string;
+
+@property({type: 'string'})
+emergencyContact?: string;
+
+@property({type: 'string'})
+emergencyPhone?: string;
+
+@property({type: 'string'})
+avatar?: string;
+
+@property({type: 'string'})
+hall?: string;
+
+@property({type: 'string'})
+residentId?: string;
+
+@property({type: 'date'})
+registrationDate?: string;
+
   constructor(data?: Partial<User>) { super(data); }
 }
 
