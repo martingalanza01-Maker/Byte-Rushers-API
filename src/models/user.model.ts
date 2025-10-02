@@ -55,6 +55,19 @@ export class User extends Entity {
 
   @property({ type: 'string', jsonSchema: {format: 'date-time', nullable: true} })
   resetCodeExpiresAt?: string;
+
+  @property({type: 'date', default: () => new Date()})
+  createdAt?: string;
+
+  @property({type: 'boolean', default: false})
+  emailVerified?: boolean;
+
+  @property({type: 'string'})
+  verificationToken?: string;
+
+  @property({type: 'date'})
+  verificationExpires?: string;
+
   constructor(data?: Partial<User>) { super(data); }
 }
 

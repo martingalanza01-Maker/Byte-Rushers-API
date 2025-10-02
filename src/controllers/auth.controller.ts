@@ -1,6 +1,6 @@
 import {repository} from '@loopback/repository';
 import {inject, service} from '@loopback/core';
-import {get, post, requestBody, Response, RestBindings} from '@loopback/rest';
+import {get, post, requestBody, Response, RestBindings,HttpErrors,param} from '@loopback/rest';
 import {MailerService} from '../services/mailer.service';
 
 
@@ -11,6 +11,8 @@ import * as bcrypt from 'bcryptjs';
 import * as jwt from 'jsonwebtoken';
 
 const TOKEN_COOKIE = 'token';
+const WEB_BASE_URL = process.env.WEB_BASE_URL || 'http://localhost:3000';
+const API_BASE = process.env.APP_BASE_URL || 'http://127.0.0.1:3001';
 
 export class AuthController {
   constructor(
@@ -47,6 +49,8 @@ export class AuthController {
     const found = await this.userRepo.findOne({ where: { email: body.email } });
     if (found) return { ok: false, message: 'Email already in use' };
     const hash = await bcrypt.hash(body.password, 10);
+    const expires = new Date(Date.now() + 24 * 60 * 60 * 1000).toISOString();
+    const verifyToken = (Math.random().toString(36).slice(2) + Math.random().toString(36).slice(2)).slice(0, 48);
     const user = await this.userRepo.create({
       email: body.email,
       password: hash,
@@ -62,10 +66,90 @@ export class AuthController {
       purok: body.purok,
       barangayHall: body.barangayHall,
       type: body.type,
+      createdAt: new Date().toISOString(),
+      emailVerified: false,
+      verificationToken: verifyToken,
+      verificationExpires: expires,
     });
     const token = this.signToken(user);
+    
     this.setAuthCookie(token);
+
+      try {
+      const verifyLink = `${API_BASE}/auth/verify?token=${encodeURIComponent(verifyToken)}`;
+
+      await this.mailer.sendMail({
+        to: user.email,
+        subject: 'Verify your email',
+        html: `<p>Hi ${user.firstName || ''},</p>
+           <p>Thanks for registering. Please verify your email by clicking the link below:</p>
+           <p><a href="${verifyLink}" target="_blank" rel="noopener">Verify Email</a></p>
+           <p>This link expires in 24 hours.</p>`
+      });
+    } catch (e) {
+      // Do not block registration on email failure
+      console.error('Verification email failed:', e);
+    }
+
     return { ok: true, user: { id: user.id, email: user.email, firstName: user.firstName, lastName: user.lastName, type: (user as any).type || 'resident' } };
+  }
+
+  @post('/auth/resend-verification', {
+    responses: {'200': {description: 'Resent verification email'}},
+  })
+  async resendVerificationByEmail(
+    @requestBody({
+      content: {'application/json': {schema: {type: 'object', required: ['email'], properties: {email: {type: 'string'}}}}}
+    })
+    body: {email: string}
+  ): Promise<{sent: boolean}> {
+    const email = body.email?.toLowerCase().trim();
+    if (!email) throw new HttpErrors.BadRequest('email is required');
+    const user = await this.userRepo.findOne({where: {email}});
+    if (!user) throw new HttpErrors.NotFound('User not found');
+    if (user.emailVerified) throw new HttpErrors.BadRequest('Email already verified');
+
+    const token = (Math.random().toString(36).slice(2) + Math.random().toString(36).slice(2)).slice(0, 48);
+    const expires = new Date(Date.now() + 24*60*60*1000).toISOString();
+
+    await this.userRepo.updateById(user.id!, {
+      verificationToken: token,
+      verificationExpires: expires,
+      emailVerified: false,
+    });
+    
+    const verifyLink = `${API_BASE}/auth/verify?token=${encodeURIComponent(token)}`;
+    await this.mailer.sendMail({
+        to: user.email,
+        subject: 'Verify your email',
+        html: `<p>Hi ${user.firstName || ''},</p>
+           <p>Thanks for registering. Please verify your email by clicking the link below:</p>
+           <p><a href="${verifyLink}" target="_blank" rel="noopener">Verify Email</a></p>
+           <p>This link expires in 24 hours.</p>`
+      });
+    return {sent: true};
+  }
+
+  @get('/auth/verify', {
+    responses: {'200': {description: 'Email verified'}},
+  })
+  async verify(
+    @param.query.string('token') token: string,
+    @inject(RestBindings.Http.RESPONSE) response: Response
+  ): Promise<object> {
+    if (!token) throw new HttpErrors.BadRequest('token is required');
+    const found = await this.userRepo.findOne({where: {verificationToken: token}});
+    if (!found) throw new HttpErrors.NotFound('Invalid token');
+    const now = Date.now();
+    const exp = found.verificationExpires ? new Date(found.verificationExpires).getTime() : 0;
+    if (!exp || now > exp) throw new HttpErrors.Gone('Verification link has expired');
+    await this.userRepo.updateById(found.id!, {
+      emailVerified: true,
+      verificationToken: undefined,
+      verificationExpires: undefined,
+    });
+    response.redirect(303, `${WEB_BASE_URL}/verify-email/success`);
+    return {ok: true};
   }
 
   @post('/auth/login')
@@ -80,6 +164,7 @@ export class AuthController {
     body: {email: string; password: string; userType: 'resident' | 'staff'},
   ) {
     const user = await this.userRepo.findOne({ where: { email: body.email } });
+    if (!user?.emailVerified) return { ok: false, message: 'Please verify your email first' };
     if (!user) return { ok: false, message: 'Invalid credentials' };
     const ok = await bcrypt.compare(body.password, user.password);
     if (!ok) return { ok: false, message: 'Invalid credentials' };
