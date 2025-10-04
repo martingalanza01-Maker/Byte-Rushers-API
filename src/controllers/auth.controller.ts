@@ -9,6 +9,7 @@ import {UserRepository} from '../repositories/user.repository';
 import {User} from '../models/user.model';
 import * as bcrypt from 'bcryptjs';
 import * as jwt from 'jsonwebtoken';
+import {OAuth2Client} from 'google-auth-library';
 
 const TOKEN_COOKIE = 'token';
 const WEB_BASE_URL = process.env.WEB_BASE_URL || 'http://localhost:3000';
@@ -498,4 +499,65 @@ export class AuthController {
     return { ok: true };
   }
 
+  @post('/auth/google-login')
+  async googleLogin(
+    @requestBody({
+      required: true,
+      content: {'application/json': { schema: { type: 'object',
+        required: ['credential'],
+        properties: { credential: { type: 'string' }, userType: { type: 'string', enum: ['resident','staff'], default: 'resident' } }
+      } } }
+    }) body: { credential: string, userType?: 'resident' | 'staff' }
+  ) {
+    const clientId = process.env.GOOGLE_CLIENT_ID || '109015417527-pqpv7b86d0a2q5lie42relrcv4vu5hl8.apps.googleusercontent.com';
+    if (!clientId) throw new HttpErrors.BadRequest('Server missing GOOGLE_CLIENT_ID');
+    const client = new OAuth2Client(clientId);
+    let payload: any;
+    try {
+      const ticket = await client.verifyIdToken({ idToken: body.credential, audience: clientId });
+      payload = ticket.getPayload();
+    } catch (e) {
+      throw new HttpErrors.Unauthorized('Invalid Google credential');
+    }
+    const email = (payload.email || '').toLowerCase();
+    if (!email) throw new HttpErrors.BadRequest('Email not present in Google token');
+    const firstName = payload.given_name || '';
+    const lastName = payload.family_name || '';
+    const picture = payload.picture;
+    const fullName = payload.name || [firstName, lastName].filter(Boolean).join(' ');
+    const type = body.userType || 'resident';
+
+    let user = await this.userRepo.findOne({ where: { email } });
+    if (!user) {
+      // Create user
+      const randomPass = Math.random().toString(36).slice(2) + Math.random().toString(36).toUpperCase().slice(2);
+      const hashed = await bcrypt.hash(randomPass, 10);
+      user = await this.userRepo.create({
+        email,
+        firstName,
+        lastName,
+        fullName,
+        password: hashed,
+        emailVerified: true,
+        createdAt: new Date().toISOString(),
+        registrationDate: new Date().toISOString(),
+        type: type as any,
+        pictureUrl: picture,
+      } as any);
+    } else {
+      // Ensure verified + name fields
+      await this.userRepo.updateById(user.id as any, {
+        emailVerified: true,
+        firstName: user.firstName || firstName,
+        lastName: user.lastName || lastName,
+        fullName: user.fullName || fullName,
+        pictureUrl: (user as any).pictureUrl || picture,
+        type: (user as any).type || type,
+      } as any);
+      user = await this.userRepo.findById(user.id as any);
+    }
+    const token = this.signToken(user);
+    this.setAuthCookie(token);
+    return { ok: true, user: { id: user.id, email: user.email, firstName: user.firstName, lastName: user.lastName, name: user.fullName, type: (user as any).type || 'resident', pictureUrl: (user as any).pictureUrl } };
+  }
 }

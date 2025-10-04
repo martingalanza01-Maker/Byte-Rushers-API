@@ -51,6 +51,9 @@ export class User extends Entity {
   barangayHall?: string;
 
   @property({ type: 'string', jsonSchema: {nullable: true} })
+  pictureUrl?: string;
+
+  @property({ type: 'string', jsonSchema: {nullable: true} })
   resetCode?: string;
 
   @property({ type: 'string', jsonSchema: {format: 'date-time', nullable: true} })
