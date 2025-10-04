@@ -9,9 +9,12 @@ import {
   requestBody,
   response,
   RestBindings,
+  param,
+  Response,
 } from '@loopback/rest';
 import multer from 'multer';
 import path from 'path';
+import QRCode from 'qrcode';
 
 import {Submission} from '../models';
 import {SubmissionRepository} from '../repositories';
@@ -209,6 +212,44 @@ const data: DataObject<Submission> = {
       console.warn('[SubmissionController] Failed to send SMS:', e);
     }
   }
+
+
+
+  @get('/submissions/{id}/qr')
+  @response(200, {
+    description: 'QR code PNG for a Document submission',
+    content: {'image/png': {schema: {type: 'string', format: 'binary'}}},
+  })
+  async getSubmissionQr(
+    @param.path.string('id') id: string,
+    @inject(RestBindings.Http.RESPONSE) res: Response,
+  ): Promise<Buffer> {
+    const sub = await this.submissionRepository.findById(id).catch(() => undefined as any);
+    if (!sub) {
+      throw Object.assign(new Error('Submission not found'), {statusCode: 404});
+    }
+    const type = ((sub as any).submissionType || (sub as any).type || '').toString().toLowerCase();
+    if (type !== 'document' && type !== 'document request' && !type.includes('document')) {
+      throw Object.assign(new Error('QR is only available for Document submissions'), {statusCode: 400});
+    }
+    const payload = {
+      kind: 'barangay-document',
+      documentId: (sub as any).id,
+      title: (sub as any).title || (sub as any).subject || 'Document',
+      resident: {
+        id: (sub as any).residentId, // optional if present in submission
+        fullName: (sub as any).name,
+        email: (sub as any).email,
+      },
+      issuedAt: new Date().toISOString(),
+    };
+    const png = await QRCode.toBuffer(JSON.stringify(payload), {type: 'png', errorCorrectionLevel: 'M', width: 512});
+    res.setHeader('Content-Type', 'image/png');
+    res.setHeader('Cache-Control', 'no-store');
+    res.setHeader('Content-Disposition', `attachment; filename="Document-${(sub as any).id}-QR.png"`);
+    return png;
+  }
+
 }
 
 function normalizePH(num: string): string {
