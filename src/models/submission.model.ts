@@ -95,6 +95,9 @@ export class Submission extends Entity {
   @property({type: 'string'})
   additionalNotes?: string;
 
+    @property({type: 'date', jsonSchema: {nullable: true}})
+  dateCompleted?: string;
+
   @property({type: 'date', defaultFn: 'now'})
   createdAt?: string;
 
