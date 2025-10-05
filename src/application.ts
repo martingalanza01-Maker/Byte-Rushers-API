@@ -11,6 +11,7 @@ import path from 'path';
 import {MySequence} from './sequence';
 import {corsMiddleware} from './middleware/cors.middleware';
 import {CounterService} from './services/counter.service';
+import {PublisherObserver} from './observers/publisher.observer';
 
 export {ApplicationConfig};
 
@@ -19,6 +20,8 @@ export class LoopbackApiApplication extends BootMixin(
 ) {
   constructor(options: ApplicationConfig = {}) {
     super(options);
+
+     this.lifeCycleObserver(PublisherObserver);
 
     // Set up the custom sequence
     this.sequence(MySequence);
