@@ -221,7 +221,30 @@ const data: DataObject<Submission> = {
 
 
 
-  @get('/submissions/{id}/qr')
+  
+  @post('/submissions/{id}/status')
+  @response(200, {
+    description: 'Update submission status',
+    content: {'application/json': {schema: getModelSchemaRef(Submission)}},
+  })
+  async updateStatus(
+    @param.path.string('id') id: string,
+    @requestBody({
+      content: {'application/json': {schema: {type: 'object', properties: {status: {type: 'string'}}, required: ['status']}}}
+    })
+    body: {status: string},
+  ): Promise<Submission> {
+    const sub = await this.submissionRepository.findById(id);
+    const allowed = ['pending','ready','completed','active','resolved'];
+    const s = (body.status || '').toLowerCase();
+    if (!allowed.includes(s)) {
+      throw Object.assign(new Error('Invalid status'), {statusCode: 400});
+    }
+    await this.submissionRepository.updateById(id, {status: s} as any);
+    return this.submissionRepository.findById(id);
+  }
+
+@get('/submissions/{id}/qr')
   @response(200, {
     description: 'QR code PNG for a Document submission',
     content: {'image/png': {schema: {type: 'string', format: 'binary'}}},

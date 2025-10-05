@@ -65,7 +65,7 @@ export class Submission extends Entity {
 
   @property({
     type: 'string',
-    jsonSchema: { enum: ['pending','completed','active','resolved'] },
+    jsonSchema: { enum: ['pending','ready','completed','active','resolved'] },
   })
   status?: string;
 
