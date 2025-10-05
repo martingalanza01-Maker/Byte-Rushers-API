@@ -4,3 +4,4 @@ export * from './submission.controller';
 export * from './auth.controller';
 
 export * from './user-profile.controller';
+export * from './announcement.controller';
