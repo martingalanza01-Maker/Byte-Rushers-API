@@ -56,7 +56,7 @@ export class StatsController {
 
     const totalRequests = mine.length;
 
-    const pending = mine.filter(s => isDoc(s.submissionType) && norm(s.status) === 'pending').length;
+    const pending = mine.filter(s => isDoc(s.submissionType) && (norm(s.status) === 'pending' || norm(s.status) === 'ready')).length;
     const completed = mine.filter(s => isDoc(s.submissionType) && norm(s.status) === 'completed').length;
 
     const activeIssues = mine.filter(s => isComplaintOrInquiry(s.submissionType) && norm(s.status) === 'active').length;
