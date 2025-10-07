@@ -1,7 +1,7 @@
 import {inject} from '@loopback/core';
 import {MongodbDataSource} from '../datasources';
 
-type Provider = 'mock' | 'infobip';
+type Provider = 'mock' | 'sms';
 
 export class SmsService {
   private provider: Provider;
@@ -14,7 +14,7 @@ export class SmsService {
 
   async send(to: string, body: string) {
     if (this.provider === 'mock') return this.mockSend(to, body);
-    if (this.provider === 'infobip') return this.infobipSend(to, body);
+    if (this.provider === 'sms') return this.smsSend(to, body);
   }
 
   private async mockSend(to: string, body: string) {
@@ -29,18 +29,17 @@ export class SmsService {
     } catch (e) { console.warn('[SmsService] mock send failed:', e); }
   }
 
-  private async infobipSend(to: string, body: string) {
-    const baseUrl = process.env.INFOBIP_BASE_URL || 'https://ypn339.api.infobip.com';
-    const apiKey = process.env.INFOBIP_API_KEY || '33afcafb3c3c1b3c6519e8fea8708d11-7dc29fcf-2864-400e-8d3d-5d3dbec33867';
-    const from = process.env.INFOBIP_SENDER || 'ServiceSMS';
-    if (!apiKey) { console.warn('[SmsService] INFOBIP_API_KEY not set, skipping SMS.'); return; }
-    const url = baseUrl.replace(/\/$/, '') + '/sms/2/text/advanced';
-    const payload = { messages: [ { destinations: [{ to: to.replace(/^\+/, '') }], from, text: body } ] };
-    
+  private async smsSend(to: string, body: string) {
+    const baseUrl = process.env.SMS_BASE_URL || 'https://api.httpsms.com';
+    const apiKey = process.env.SMS_API_KEY || 'uk_pS3m5Vztk0cRX9mguWvsvbEAezIPRtMVwY9wK7e25hFWyy5I29n6pQUVy2zC7d2S';
+    const from = process.env.SMS_SENDER || '+639943461432';
+    if (!apiKey) { console.warn('[SmsService] SMS_API_KEY not set, skipping SMS.'); return; }
+    const url = baseUrl.replace(/\/$/, '') + '/v1/messages/send';
+    const payload = {content: body,from, to: to.replace(/^\+/, '')};
     try {
       const fetchFn: any = (global as any).fetch || (await import('node-fetch')).default;
-      const res = await fetchFn(url, { method: 'POST', headers: { 'Authorization': `App ${apiKey}`, 'Content-Type': 'application/json', 'Accept': 'application/json' }, body: JSON.stringify(payload) });
-      if (!res.ok) { const msg = await res.text(); console.warn('[SmsService][Infobip] Error:', res.status, msg); }
-    } catch (e) { console.warn('[SmsService][Infobip] Send failed:', e); }
+      const res = await fetchFn(url, { method: 'POST', headers: { 'x-api-key': apiKey, 'Content-Type': 'application/json', 'Accept': 'application/json' }, body: JSON.stringify(payload) });
+      if (!res.ok) { const msg = await res.text(); console.warn('[SmsService][SMS] Error:', res.status, msg); }
+    } catch (e) { console.warn('[SmsService][SMS] Send failed:', e); }
   }
 }

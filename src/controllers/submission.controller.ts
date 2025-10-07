@@ -208,8 +208,8 @@ export class SubmissionController {
       const ref = t === 'complaint' ? (sub as any).complaintId : (sub as any).documentReqId;
       const refText = ref ? ` (${ref})` : '';
       const text = t === 'complaint'
-        ? `Hi ${who}, your complaint has been received${refText}. We'll keep you posted.`
-        : `Hi ${who}, your document request has been received${refText}. We'll text you updates when it's processing and ready for pickup.`;
+        ? `Hi ${who}, your complaint has been received ${refText}. We'll keep you posted.`
+        : `Hi ${who}, your document request has been received ${refText}. We'll text you updates when it's processing and ready for pickup.`;
 
       await this.sms.send(sub.phone!, text);
     } catch (e) {
