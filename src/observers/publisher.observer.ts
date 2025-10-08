@@ -16,9 +16,6 @@ export class PublisherObserver implements LifeCycleObserver {
     // run every 60s; make it configurable if you want
     this.timer = setInterval(async () => {
       try {
-        const now = new Date();
-        const nowISO = now.toISOString();
-
         await this.announcementRepo.updateAll(
           {
             published: true,
@@ -28,7 +25,7 @@ export class PublisherObserver implements LifeCycleObserver {
               {published: false},
               {publishedSchedule: {neq: null}},
               // publishedSchedule is typed as string, so compare with ISO string
-              {publishedSchedule: {lte: nowISO}},
+              {publishedSchedule: {lte: new Date()}},
             ],
           },
         );

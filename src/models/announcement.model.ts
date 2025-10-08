@@ -43,10 +43,10 @@ export class Announcement extends Entity {
   published?: boolean;
 
   @property({
-    type: 'string',
+    type: 'date',
     jsonSchema: {nullable: true, format: 'date-time'},
   })
-  publishedSchedule?: string | null;
+  publishedSchedule?: Date | null;
 
   // Audit
   @property({type: 'string'})

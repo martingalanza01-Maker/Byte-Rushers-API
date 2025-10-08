@@ -10,25 +10,6 @@ import {
 } from '@loopback/rest';
 import {Announcement} from '../models';
 import {AnnouncementRepository} from '../repositories';
-
-function normalizeForScheduling(input: Partial<Announcement>): Partial<Announcement> {
-  const out: Partial<Announcement> = {...input};
-  const hasSchedule = typeof out.publishedSchedule === 'string' && out.publishedSchedule.trim().length > 0;
-
-  if (hasSchedule) {
-    out.published = false;
-    out.publishedSchedule = new Date(out.publishedSchedule!).toISOString();
-  } else if (out.published === true) {
-    out.published = true;
-    delete out.publishedSchedule;
-  } else {
-    out.published = false;
-    delete out.publishedSchedule;
-  }
-  out.draft = out.published === true ? false : true;
-  return out;
-}
-
 export class AnnouncementController {
   constructor(
     @repository(AnnouncementRepository)
@@ -50,11 +31,10 @@ export class AnnouncementController {
     })
     body: Partial<Announcement>,
   ): Promise<Announcement> {
-    const normalized = normalizeForScheduling(body);
     const nowIso = new Date().toISOString() as any;
-    normalized.createdAt = nowIso;
-    normalized.updatedAt = nowIso;
-    return this.announcementRepository.create(normalized as Announcement);
+    body.createdAt = nowIso;
+    body.updatedAt = nowIso;
+    return this.announcementRepository.create(body as Announcement);
   }
 
   @get('/announcements/{id}')
@@ -78,7 +58,7 @@ export class AnnouncementController {
   })
   async listDrafts(): Promise<Announcement[]> {
     return this.announcementRepository.find({
-      where: {published: {neq: true}},
+      where: {published: {neq: true}, publishedSchedule: {eq: null}},
       order: ['updatedAt DESC'],
     });
   }
@@ -133,9 +113,8 @@ export class AnnouncementController {
     })
     body: Partial<Announcement>,
   ): Promise<Announcement> {
-    const updates = normalizeForScheduling(body);
-    updates.updatedAt = new Date().toISOString() as any;
-    await this.announcementRepository.updateById(id, updates);
+    body.updatedAt = new Date().toISOString() as any;
+    await this.announcementRepository.updateById(id, body);
     return this.announcementRepository.findById(id);
   }
 }
