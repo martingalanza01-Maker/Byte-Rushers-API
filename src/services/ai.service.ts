@@ -4,7 +4,7 @@ import { TokenBucket } from "../utils/rateLimiter";
 
 export const INTEGRATION_VERSION = "openai_rl_v6b";
 
-const OPENAI_API_KEY = process.env.OPENAI_API_KEY as string || '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';
+const OPENAI_API_KEY = process.env.OPENAI_API_KEY as string || '';
 const RESPONSES_MODEL = process.env.OPENAI_MODEL || "gpt-4o-mini";
 const RESPONSES_URL = "https://api.openai.com/v1/responses";
 
