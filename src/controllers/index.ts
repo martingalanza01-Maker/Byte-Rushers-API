@@ -17,3 +17,4 @@ export * from './debug-openai-ping.controller';
 export * from './debug-routes.controller';
 export * from './debug-version.controller';
 export * from './trends-chatgpt.controller';
+export * from './health.controller';
