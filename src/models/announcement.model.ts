@@ -61,6 +61,9 @@ export class Announcement extends Entity {
   @property({type: 'date', defaultFn: 'now'})
   updatedAt?: string;
 
+  @property({type: 'string'})
+  imageUrl?: string;
+
   constructor(data?: Partial<Announcement>) {
     super(data);
   }
