@@ -19,6 +19,15 @@ export class Submission extends Entity {
   @property({type: 'string'})
   address?: string;
 
+  @property({type: 'string'})
+  houseNumber?: string;
+
+  @property({type: 'string'})
+  street?: string;
+
+  @property({type: 'string'})
+  purokZone?: string;
+
   // Generic fields used across forms
   @property({type: 'string'})
   type?: string;
