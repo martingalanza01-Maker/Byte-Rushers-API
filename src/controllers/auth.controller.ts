@@ -205,7 +205,8 @@ export class AuthController {
       return { authenticated: true, 
         user: { 
           id: user.id, 
-          email: user.email, 
+          email: user.email,
+          fullName: user.fullName,
           firstName: user.firstName, 
           lastName: user.lastName, 
           phone: user.phone, 

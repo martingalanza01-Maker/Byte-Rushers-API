@@ -19,6 +19,15 @@ export class Submission extends Entity {
   @property({type: 'string'})
   address?: string;
 
+  @property({type: 'string'})
+  houseNumber?: string;
+
+  @property({type: 'string'})
+  street?: string;
+
+  @property({type: 'string'})
+  purokZone?: string;
+
   // Generic fields used across forms
   @property({type: 'string'})
   type?: string;
@@ -103,6 +112,9 @@ export class Submission extends Entity {
 
   @property({type: 'date', defaultFn: 'now'})
   createdAt?: string;
+
+  @property({type: 'string', jsonSchema: {maxLength: 2000}})
+  remarks?: string;
 
   constructor(data?: Partial<Submission>) {
     super(data);

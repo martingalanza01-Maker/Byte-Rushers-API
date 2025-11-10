@@ -214,8 +214,8 @@ export class SubmissionController {
       const ref = t === 'complaint' ? (sub as any).complaintId : (sub as any).documentReqId;
       const refText = ref ? ` (${ref})` : '';
       const text = t === 'complaint'
-        ? `Hi ${who}, your complaint has been received ${refText}. We'll keep you posted.`
-        : `Hi ${who}, your document request has been received ${refText}. We'll text you updates when it's processing and ready for pickup.`;
+        ? `Ugnayan sa Manggahan: Hi ${who}. We have received your complaint (Ref ${refText}). We will send updates as it is reviewed.`
+        : `Ugnayan sa Manggahan:: Hi ${who}. We have received your document request (Ref ${refText}). We will text you when processing starts and when it is ready for pickup.`;
 
       await this.sms.send(sub.phone!, text);
     } catch (e) {
@@ -372,6 +372,25 @@ export class SubmissionController {
     const updated = await this.submissionRepository.findById(id);
     return { ok:true, data: updated };
   }
+
+  @post('/submissions/{id}/remarks')
+  @response(200, {
+    description: 'Update submission remarks',
+    content: {'application/json': {schema: {type: 'object', properties: {ok: {type: 'boolean'}, data: {}}}}},
+  })
+  async updateRemarks(
+    @param.path.string('id') id: string,
+    @requestBody({
+      required: true,
+      content: {'application/json': {schema: {type: 'object', properties: {remarks: {type: 'string'}}, required: ['remarks']}}},
+    })
+    body: {remarks: string},
+  ): Promise<object> {
+    await this.submissionRepository.updateById(id, {remarks: body.remarks} as any);
+    const updated = await this.submissionRepository.findById(id);
+    return {ok: true, data: updated};
+  }
+
 }
 
 function normalizePH(num: string): string {
