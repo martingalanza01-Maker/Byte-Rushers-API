@@ -113,6 +113,9 @@ export class Submission extends Entity {
   @property({type: 'date', defaultFn: 'now'})
   createdAt?: string;
 
+  @property({type: 'string', jsonSchema: {maxLength: 2000}})
+  remarks?: string;
+
   constructor(data?: Partial<Submission>) {
     super(data);
   }

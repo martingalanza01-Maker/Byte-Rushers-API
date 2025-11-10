@@ -372,6 +372,25 @@ export class SubmissionController {
     const updated = await this.submissionRepository.findById(id);
     return { ok:true, data: updated };
   }
+
+  @post('/submissions/{id}/remarks')
+  @response(200, {
+    description: 'Update submission remarks',
+    content: {'application/json': {schema: {type: 'object', properties: {ok: {type: 'boolean'}, data: {}}}}},
+  })
+  async updateRemarks(
+    @param.path.string('id') id: string,
+    @requestBody({
+      required: true,
+      content: {'application/json': {schema: {type: 'object', properties: {remarks: {type: 'string'}}, required: ['remarks']}}},
+    })
+    body: {remarks: string},
+  ): Promise<object> {
+    await this.submissionRepository.updateById(id, {remarks: body.remarks} as any);
+    const updated = await this.submissionRepository.findById(id);
+    return {ok: true, data: updated};
+  }
+
 }
 
 function normalizePH(num: string): string {
