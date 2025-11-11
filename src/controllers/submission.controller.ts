@@ -162,6 +162,12 @@ export class SubmissionController {
       submissionType,
       complaintId,
       documentReqId,
+      purpose: fields.purpose,
+      documentType: fields.documentType,
+      pickupHall: fields.pickupHall,
+      fee: submissionType === 'Document' ? parseFloat(fields.fee) || 0 : undefined,
+      urgent: submissionType === 'Document' ? (fields.urgent === 'true' || fields.urgent === true) : undefined,
+      category: fields.category,
     };
 
     const created = await this.submissionRepository.create(data);
