@@ -117,7 +117,7 @@ export class StatsController {
     const dateKey = (iso?: string) => (iso ? fmt.format(new Date(iso)) : '');
 
     const pending = all.filter((s: Submission) =>
-      isDoc(s.submissionType) && norm(s.status) === 'pending'
+      isDoc(s.submissionType) && (norm(s.status) === 'pending' || norm(s.status) === 'verification')
     ).length;
 
     const documents = all.filter((s: Submission) =>

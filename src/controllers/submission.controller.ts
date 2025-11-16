@@ -275,7 +275,7 @@ export class SubmissionController {
     })
     body: {status: string},
   ): Promise<Submission> {
-    const allowed = ['pending','ready','completed','active','resolved', 'cancelled'];
+    const allowed = ['pending','ready','completed','active','resolved', 'cancelled', 'verification'];
     const s = (body.status || '').toLowerCase();
     if (!allowed.includes(s)) {
       throw Object.assign(new Error('Invalid status'), {statusCode: 400});
