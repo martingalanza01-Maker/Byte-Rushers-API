@@ -200,8 +200,17 @@ export class StatsController {
       .catch(() => [] as Submission[]);
 
     const norm = (v?: string) => (v || '').toString().trim().toLowerCase();
-    const isDoc = (t?: string) => norm(t) === 'document';
-    const isComplaint = (t?: string) => norm(t) === 'complaint';
+    // Treat any "document" style type as Document (e.g., "Document", "Document Request")
+    const isDoc = (t?: string) => {
+      const tt = norm(t);
+      return tt === 'document' || tt === 'document request' || tt.includes('document');
+    };
+    // Treat both "Complaint" and "Complaints/Inquiry" (and plain "Inquiry") as complaints for stats
+    const isComplaint = (t?: string) => {
+      const tt = norm(t);
+      return tt === 'complaint' || tt === 'complaints/inquiry' || tt === 'inquiry';
+    };
+
 
     const inRange = (value?: string | Date) => {
       if (!value) return false;
