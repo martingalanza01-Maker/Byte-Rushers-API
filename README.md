@@ -1,75 +1,62 @@
-# loopback-api
+# Byte-Rushers-API
 
-This application is generated using [LoopBack 4 CLI](https://loopback.io/doc/en/lb4/Command-line-interface.html) with the
-[initial project layout](https://loopback.io/doc/en/lb4/Loopback-application-layout.html).
+**Byte-Rushers-API** is the backend for the Byte-Rushers web app. It handles business logic, API routes, and persistence using MongoDB.
 
-## Install dependencies
+## Tech Stack
+- Node.js / TypeScript
+- [LoopBack 4](https://loopback.io/) Framework
+- MongoDB database
 
-By default, dependencies were installed when this application was generated.
-Whenever dependencies in `package.json` are changed, run the following command:
+## Getting Started
 
-```sh
+### 1. Clone and Install
+
+```bash
+git clone https://github.com/martingalanza01-Maker/Byte-Rushers-API.git
+cd Byte-Rushers-API
 npm install
 ```
 
-To only install resolved dependencies in `package-lock.json`:
+### 2. Setup Environment
 
-```sh
-npm ci
+- Copy the example environment file and edit required values:
+  ```bash
+  cp .env.example .env
+  ```
+- Set your MongoDB URL and other secrets in `.env`.
+
+### 3. Run Database Migration
+
+```bash
+npm run migrate
 ```
 
-## Run the application
+### 4. Start the Server
 
-```sh
-npm start
+```bash
+npm run dev
 ```
+- By default, the API will run at [http://localhost:3001](http://localhost:3001)
 
-You can also run `node .` to skip the build step.
+## Useful Commands
 
-Open http://127.0.0.1:3001 in your browser.
+- `npm run migrate` – Apply DB schema changes
+- `npm test` – Run backend tests
+- `npm run build` – Compile to `/dist` for production
+- `npm start` – Start from `/dist`
 
-## Rebuild the project
+## Project Structure
 
-To incrementally build the project:
+- `src/controllers/` - API route handlers
+- `src/models/` - Data models
+- `src/datasources/` - MongoDB connection config
+- `src/repositories/` - Database operations
 
-```sh
-npm run build
-```
+## Database
 
-To force a full build by cleaning up cached artifacts:
+- Uses **MongoDB**
+- Connection configured in `.env` and `src/datasources/mongodb.datasource.ts`
 
-```sh
-npm run rebuild
-```
+---
 
-## Fix code style and formatting issues
-
-```sh
-npm run lint
-```
-
-To automatically fix such issues:
-
-```sh
-npm run lint:fix
-```
-
-## Other useful commands
-
-- `npm run migrate`: Migrate database schemas for models
-- `npm run openapi-spec`: Generate OpenAPI spec into a file
-- `npm run docker:build`: Build a Docker image for this application
-- `npm run docker:run`: Run this application inside a Docker container
-
-## Tests
-
-```sh
-npm test
-```
-
-## What's next
-
-Please check out [LoopBack 4 documentation](https://loopback.io/doc/en/lb4/) to
-understand how you can continue to add features to this application.
-
-[![LoopBack](https://github.com/loopbackio/loopback-next/raw/master/docs/site/imgs/branding/Powered-by-LoopBack-Badge-(blue)-@2x.png)](http://loopback.io/)
+Built with LoopBack 4 and MongoDB.
